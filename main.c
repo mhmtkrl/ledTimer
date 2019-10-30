@@ -54,19 +54,15 @@ int main() {
 			TIM7->CR1 &= ~(1ul << 0);
 		}
 		
-		//Hardware Timer Sequence
+		//Hardware timer led blink
 		if(hard_counter > 10) {
-			GPIOD->ODR = 1ul << 12;
+			GPIOD->ODR |= 1ul << 12;
+			GPIOD->ODR &= ~(1ul << 13);
 		}
 	 if(hard_counter > 20){
-			GPIOD->ODR = 1ul << 13;
-		}
-	 if(hard_counter > 30){
-			GPIOD->ODR = 1ul << 14;
-		}
-		if(hard_counter > 40){
-			hard_counter = 0;
-			GPIOD->ODR = 1ul << 15;
+		 hard_counter = 0;
+			GPIOD->ODR |= 1ul << 13;
+		 GPIOD->ODR &= ~(1ul << 12);
 		}
 		
 		//Software Timer Sequence
@@ -74,8 +70,18 @@ int main() {
 		if(timerNo) {
 			SoftTimer_ResetTimer(TIMER_A);
 			soft_counter++;
-			if(soft_counter > 1) soft_counter = 0;
 			SoftTimer_SetTimer(TIMER_A, 0);
+		}
+		
+		//Software timer led blink
+		if(soft_counter > 10) {
+			GPIOD->ODR |= 1ul << 14;
+			GPIOD->ODR &= ~(1ul << 15);
+		}
+	 if(soft_counter > 20){
+		 soft_counter = 0;
+		 GPIOD->ODR |= 1ul << 15;
+		 GPIOD->ODR &= ~(1ul << 14);
 		}
 
 	}
