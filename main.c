@@ -1,4 +1,5 @@
 #include "stm32f4xx.h"                  						// Device header
+#include "softTimer.h"
 
 #define	UserButton	(GPIOA->IDR & 0x01)							//User Button -> PA0
 
