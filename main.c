@@ -12,7 +12,6 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 	if(TIM7->SR) {
 		SoftTimer_ISR();
 		hard_counter++;
-		if(hard_counter > 1) hard_counter = 0;
 	}
 	TIM7->SR = 0;
 }
@@ -36,6 +35,9 @@ int main() {
 	TIM7->ARR = 59999;        
   NVIC->ISER[1] = 0x00800000;  
 	
+	//Timer Manual control
+	TIM7->CR1 &= ~(1ul << 0);
+	
 	SoftTimer_ResetTimer(TIMER_A);
 	SoftTimer_Init();
 	SoftTimer_SetTimer(TIMER_A, 0);
@@ -44,18 +46,27 @@ int main() {
 		//User button sequence
 		if(UserButton) {
 			delayMs(10000);
-			GPIOD->ODR |= 1ul << 14;
+			//Timer Enable
+			TIM7->CR1 |= 1ul << 0;
 		}
 		else {
-			GPIOD->ODR &= ~(1ul << 14);
+			//Timer Disable
+			TIM7->CR1 &= ~(1ul << 0);
 		}
 		
 		//Hardware Timer Sequence
-		if(hard_counter) {
-			GPIOD->ODR |= 1ul << 12;
+		if(hard_counter > 10) {
+			GPIOD->ODR = 1ul << 12;
 		}
-		else {
-			GPIOD->ODR &= ~(1ul << 12);
+	 if(hard_counter > 20){
+			GPIOD->ODR = 1ul << 13;
+		}
+	 if(hard_counter > 30){
+			GPIOD->ODR = 1ul << 14;
+		}
+		if(hard_counter > 40){
+			hard_counter = 0;
+			GPIOD->ODR = 1ul << 15;
 		}
 		
 		//Software Timer Sequence
@@ -66,11 +77,6 @@ int main() {
 			if(soft_counter > 1) soft_counter = 0;
 			SoftTimer_SetTimer(TIMER_A, 0);
 		}
-		if(soft_counter) {
-			GPIOD->ODR |= 1ul << 13;
-		}
-		else {
-			GPIOD->ODR &= ~(1ul << 13);
-		}
+
 	}
 }
