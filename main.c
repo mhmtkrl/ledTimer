@@ -5,12 +5,14 @@
 
 void delayMs(uint32_t delay);
 
-uint8_t counter = 0;
+uint8_t hard_counter = 0, soft_counter = 0;
+uint8_t timerNo = 0;
 
 void TIM7_IRQHandler() {														//Timer7 ISR function
 	if(TIM7->SR) {
-		counter++;
-		if(counter > 1) counter = 0;
+		SoftTimer_ISR();
+		hard_counter++;
+		if(hard_counter > 1) hard_counter = 0;
 	}
 	TIM7->SR = 0;
 }
@@ -34,6 +36,10 @@ int main() {
 	TIM7->ARR = 59999;        
   NVIC->ISER[1] = 0x00800000;  
 	
+	SoftTimer_ResetTimer(TIMER_A);
+	SoftTimer_Init();
+	SoftTimer_SetTimer(TIMER_A, 0);
+	
 	while(1) {
 		//User button sequence
 		if(UserButton) {
@@ -44,12 +50,27 @@ int main() {
 			GPIOD->ODR &= ~(1ul << 14);
 		}
 		
-		//Timer Sequence
-		if(counter) {
+		//Hardware Timer Sequence
+		if(hard_counter) {
 			GPIOD->ODR |= 1ul << 12;
 		}
 		else {
 			GPIOD->ODR &= ~(1ul << 12);
+		}
+		
+		//Software Timer Sequence
+		timerNo = SoftTimer_GetTimerStatus(TIMER_A);
+		if(timerNo) {
+			SoftTimer_ResetTimer(TIMER_A);
+			soft_counter++;
+			if(soft_counter > 1) soft_counter = 0;
+			SoftTimer_SetTimer(TIMER_A, 0);
+		}
+		if(soft_counter) {
+			GPIOD->ODR |= 1ul << 13;
+		}
+		else {
+			GPIOD->ODR &= ~(1ul << 13);
 		}
 	}
 }
