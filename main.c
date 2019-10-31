@@ -33,17 +33,8 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 			soft_counter = 0;
 		}
 		//////////////////////////////
-		//Measure pushing time
-		if(buttonCounter) {
-			hard_counter++;
-			if(hard_counter >= PushingTime) hard_counter = PushingTime;
-		}
-		else {
-			hard_counter = 0;
-		}
-		/////////////////////////////
 		//Decide ledMode long or short period
-		if(buttonCounter && hard_counter >= PushingTime) {
+		if(prevButtonCounter && hard_counter >= PushingTime) {
 			ledMode = modeLong;
 		}
 		if(buttonCounter && hard_counter < PushingTime && ledMode == modeLong) {
@@ -53,6 +44,16 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 			ledMode = modeShort;
 		}
 		///////////////////////////
+		//Measure pushing time
+		if(buttonCounter) {
+			hard_counter++;
+			if(hard_counter >= PushingTime) hard_counter = PushingTime;
+		}
+		else {
+			hard_counter = 0;
+		}
+		/////////////////////////////
+
 		//During long mode
 		if(ledMode == modeLong || ledMode == modeSpec) {
 			GPIOD->ODR &= ~(1ul << 13);
