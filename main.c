@@ -12,6 +12,8 @@ uint8_t timerNo = 0;
 uint8_t oneSec = 0, twoSec = 0;
 uint8_t buttonCounter = 0, prevButtonCounter = 0;
 
+uint32_t clock = 0;
+
 typedef enum{
 	modeShort,
 	modeLong
@@ -21,10 +23,52 @@ uint8_t ledMode = 0;
 
 void TIM7_IRQHandler() {														//Timer7 ISR function
 	if(TIM7->SR) {
-		SoftTimer_ISR();
-		if((buttonCounter)) {
+		//1sec interrupt software flag
+		soft_counter++;
+		if(soft_counter >= 1000) oneSec = 1;
+		if(soft_counter >= 2000) {
+			oneSec = 0;
+			soft_counter = 0;
+		}
+		//////////////////////////////
+		//Measure pushing time
+		if(buttonCounter) {
 			hard_counter++;
 		}
+		else {
+			hard_counter = 0;
+		}
+		/////////////////////////////
+		//Decide ledMode long or short period
+		if(hard_counter >= 3000) {
+			ledMode = modeLong;
+		}
+		if(buttonCounter && hard_counter < 3000) {
+			ledMode = modeShort;
+		}
+		///////////////////////////
+		//During long mode
+		if(ledMode == modeLong) {
+			GPIOD->ODR &= ~(1ul << 13);
+			if(oneSec) {
+				GPIOD->ODR |= 1ul << 15;
+			}
+			else {
+				GPIOD->ODR &= ~(1ul << 15);
+			}
+		}
+		////////////////////////////
+		//During short mode
+		if(ledMode == modeShort) {
+			GPIOD->ODR &= ~(1ul << 15);
+			if(oneSec) {
+				GPIOD->ODR |= 1ul << 13;
+			}
+			else {
+				GPIOD->ODR &= ~(1ul << 13);
+			}
+		}
+		/////////////////////////////
 	}
 	TIM7->SR = 0;
 }
@@ -56,7 +100,7 @@ int main() {
 	TIM7->SR = 0x00;
 	TIM7->CNT = 0;
 	TIM7->PSC = 69 ;
-	TIM7->ARR = 599 ;         
+	TIM7->ARR = 599 ;      
   NVIC->ISER[1] = 0x00800000;  
 	
 	SoftTimer_ResetTimer(TIMER_A);
@@ -64,60 +108,15 @@ int main() {
 	SoftTimer_SetTimer(TIMER_A, 0);
 	
 	while(1) {
-		//User button sequence
+		//Detect user button
 		if(UserButton) {
 			buttonCounter = 1;
-			delayMs(16800000);												//100ms debounce
-			
-
-			if(hard_counter >= 3000) {
-				ledMode = modeLong;
-			}
-			else {
-				ledMode = modeShort;
-			}
+			delayMs(1680000);
+			GPIOD->ODR |= 1ul << 14;
 		}
 		else {
 			buttonCounter = 0;
-			hard_counter = 0;
-		}
-		
-		//if((buttonCounter != prevButtonCounter) && (ledMode == modeLong)) hard_counter = 0;
-		
-		//Software Timer Sequence
-		timerNo = SoftTimer_GetTimerStatus(TIMER_A);
-		if(timerNo) {
-			SoftTimer_ResetTimer(TIMER_A);
-			soft_counter++;
-			SoftTimer_SetTimer(TIMER_A, 0);
-		}
-		
-		if(soft_counter >= 1000) {
-			oneSec = 1;
-		}
-		if(soft_counter >= 2000) {
-			twoSec = 1;
-			soft_counter = 0;
-		}
-		//Software timer led blink
-		
-		if(oneSec) {
-			GPIOD->ODR |= 1ul << 12;
-		}
-		if(twoSec) {
-			oneSec = 0;
-			GPIOD->ODR &= ~(1ul << 12);
-			twoSec = 0;
-		}
-			
-		if(ledMode == modeShort) {
-			GPIOD->ODR |= 1ul << 15;
 			GPIOD->ODR &= ~(1ul << 14);
-		}
-		if(ledMode == modeLong) {
-			GPIOD->ODR |= 1ul << 14;
-			GPIOD->ODR &= ~(1ul << 15);
-		}
-		prevButtonCounter = buttonCounter;
+		}		
 	}
 }
