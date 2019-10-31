@@ -1,6 +1,7 @@
 #include "stm32f4xx.h"                  						// Device header
 #include "softTimer.h"
 
+#define PushingTime 5000
 #define	UserButton	(GPIOA->IDR & 0x01)							//User Button -> PA0
 
 void delayMs(uint32_t delay);
@@ -16,7 +17,8 @@ uint32_t clock = 0;
 
 typedef enum{
 	modeShort,
-	modeLong
+	modeLong,
+	modeSpec
 }modes;
 
 uint8_t ledMode = 0;
@@ -34,21 +36,25 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 		//Measure pushing time
 		if(buttonCounter) {
 			hard_counter++;
+			if(hard_counter >= PushingTime) hard_counter = PushingTime;
 		}
 		else {
 			hard_counter = 0;
 		}
 		/////////////////////////////
 		//Decide ledMode long or short period
-		if(hard_counter >= 3000) {
+		if(buttonCounter && hard_counter >= PushingTime) {
 			ledMode = modeLong;
 		}
-		if(buttonCounter && hard_counter < 3000) {
+		if(buttonCounter && hard_counter < PushingTime && ledMode == modeLong) {
+			ledMode = modeSpec;
+		}
+		if(prevButtonCounter && hard_counter < PushingTime && ledMode == modeSpec) {
 			ledMode = modeShort;
 		}
 		///////////////////////////
 		//During long mode
-		if(ledMode == modeLong) {
+		if(ledMode == modeLong || ledMode == modeSpec) {
 			GPIOD->ODR &= ~(1ul << 13);
 			if(oneSec) {
 				GPIOD->ODR |= 1ul << 15;
@@ -110,13 +116,21 @@ int main() {
 	while(1) {
 		//Detect user button
 		if(UserButton) {
-			buttonCounter = 1;
 			delayMs(1680000);
 			GPIOD->ODR |= 1ul << 14;
-		}
-		else {
+			buttonCounter = 1;
+			prevButtonCounter = 0;
+			
+			while(UserButton) {
+				
+			}
 			buttonCounter = 0;
+			prevButtonCounter = 1;
 			GPIOD->ODR &= ~(1ul << 14);
-		}		
+		}
+
+			
+			
+	
 	}
 }
