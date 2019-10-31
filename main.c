@@ -9,10 +9,22 @@ void SystemFullSpeed(void);
 uint16_t hard_counter = 0, soft_counter = 0;
 uint8_t timerNo = 0;
 
+uint8_t oneSec = 0, twoSec = 0;
+uint8_t buttonCounter = 0, prevButtonCounter = 0;
+
+typedef enum{
+	modeShort,
+	modeLong
+}modes;
+
+uint8_t ledMode = 0;
+
 void TIM7_IRQHandler() {														//Timer7 ISR function
 	if(TIM7->SR) {
 		SoftTimer_ISR();
-		hard_counter++;
+		if((buttonCounter)) {
+			hard_counter++;
+		}
 	}
 	TIM7->SR = 0;
 }
@@ -47,9 +59,6 @@ int main() {
 	TIM7->ARR = 599 ;         
   NVIC->ISER[1] = 0x00800000;  
 	
-	//Timer Manual control
-	//TIM7->CR1 &= ~(1ul << 0);
-	
 	SoftTimer_ResetTimer(TIMER_A);
 	SoftTimer_Init();
 	SoftTimer_SetTimer(TIMER_A, 0);
@@ -57,25 +66,23 @@ int main() {
 	while(1) {
 		//User button sequence
 		if(UserButton) {
+			buttonCounter = 1;
 			delayMs(16800000);												//100ms debounce
-			//Timer Enable
-			TIM7->CR1 |= 1ul << 0;
+			
+
+			if(hard_counter >= 3000) {
+				ledMode = modeLong;
+			}
+			else {
+				ledMode = modeShort;
+			}
 		}
-//		else {
-//			//Timer Disable
-//			TIM7->CR1 &= ~(1ul << 0);
-//		}
+		else {
+			buttonCounter = 0;
+			hard_counter = 0;
+		}
 		
-		//Hardware timer led blink
-		if(hard_counter > 1000) {
-			GPIOD->ODR |= 1ul << 12;
-			GPIOD->ODR &= ~(1ul << 13);
-		}
-	 if(hard_counter > 2000){
-		 hard_counter = 0;
-			GPIOD->ODR |= 1ul << 13;
-		 GPIOD->ODR &= ~(1ul << 12);
-		}
+		//if((buttonCounter != prevButtonCounter) && (ledMode == modeLong)) hard_counter = 0;
 		
 		//Software Timer Sequence
 		timerNo = SoftTimer_GetTimerStatus(TIMER_A);
@@ -85,16 +92,32 @@ int main() {
 			SoftTimer_SetTimer(TIMER_A, 0);
 		}
 		
+		if(soft_counter >= 1000) {
+			oneSec = 1;
+		}
+		if(soft_counter >= 2000) {
+			twoSec = 1;
+			soft_counter = 0;
+		}
 		//Software timer led blink
-		if(soft_counter > 1000) {
+		
+		if(oneSec) {
+			GPIOD->ODR |= 1ul << 12;
+		}
+		if(twoSec) {
+			oneSec = 0;
+			GPIOD->ODR &= ~(1ul << 12);
+			twoSec = 0;
+		}
+			
+		if(ledMode == modeShort) {
+			GPIOD->ODR |= 1ul << 15;
+			GPIOD->ODR &= ~(1ul << 14);
+		}
+		if(ledMode == modeLong) {
 			GPIOD->ODR |= 1ul << 14;
 			GPIOD->ODR &= ~(1ul << 15);
 		}
-	 if(soft_counter > 2000){
-		 soft_counter = 0;
-		 GPIOD->ODR |= 1ul << 15;
-		 GPIOD->ODR &= ~(1ul << 14);
-		}
-
+		prevButtonCounter = buttonCounter;
 	}
 }
