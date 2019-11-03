@@ -1,8 +1,15 @@
 /*
-Author : Mehmet KORAL
-Date   : 30.10.2019
-Email  : mehmet.koral96@gmail.com
-Github : https://github.com/mhmtkrl/ledTimer
+Author 		 : Mehmet KORAL
+Date   		 : 30.10.2019
+Email  		 : mehmet.koral96@gmail.com
+Github 		 : https://github.com/mhmtkrl/ledTimer
+MCU		 	   : STM32F407VGt6 with STM32F4 Discovery Board: https://www.st.com/en/evaluation-tools/stm32f4discovery.html
+Peripherals: GPIOA -> PA0 is defined for USer button
+						 GPIOD -> PD12(Yellow) is on when time is up(3 Sec)
+									 -> PD13(Orange) is on for LED sequences
+									 -> PD14(Red) is on when user button is pressed
+						 TIM7  -> Timer7 was set for generating 1ms ISR
+						 
 */
 
 #include "stm32f4xx.h"                  						// Device header
@@ -15,7 +22,6 @@ void delayMs(uint32_t delay);												//Delay Function
 void SystemFullSpeed(void);													//MCU is running on 168MHz with external OSC(8MHz)
 
 uint16_t hard_counter = 0, soft_counter = 0;
-uint8_t timerNo = 0;
 
 uint8_t oneSec = 0, twoSec = 0, twosecled = 0;
 uint8_t buttonCounter = 0, prevButtonCounter = 0;
@@ -96,23 +102,23 @@ void TIM7_IRQHandler() {														//Timer7 1ms ISR function
   	////////////////////////////
 		//During long mode -> 1sec
 		if(((ledMode == modeLong) || ledMode == modeSpec) && shortModeCounter <= 8) {
-			GPIOD->ODR &= ~(1ul << 13);
+			GPIOD->ODR &= ~(1ul << 15);
 			if(oneSec) {
-				GPIOD->ODR |= 1ul << 15;
+				GPIOD->ODR |= 1ul << 13;
 			}
 			else {
-				GPIOD->ODR &= ~(1ul << 15);
+				GPIOD->ODR &= ~(1ul << 13);
 			}
 		}
 		/////////////////////////////
 		//During long mode -> 2sec
 		if(((ledMode == modeLong) || ledMode == modeSpec) && (shortModeCounter > 8) && shortModeCounter < 24) {
-			GPIOD->ODR &= ~(1ul << 13);
+			GPIOD->ODR &= ~(1ul << 15);
 			if(twosecled) {
-				GPIOD->ODR |= 1ul << 15;
+				GPIOD->ODR |= 1ul << 13;
 			}
 			else {
-				GPIOD->ODR &= ~(1ul << 15);
+				GPIOD->ODR &= ~(1ul << 13);
 			}
 		}
 		/////////////////////////////
