@@ -17,30 +17,32 @@ uint8_t shortModeCounter = 0;
 
 uint32_t clock = 0;
 
+uint8_t here = 0;
+
 typedef enum{
 	modeShort,
 	modeLong,
 	modeSpec
 }modes;
 
-uint8_t ledMode = 0;
+uint8_t ledMode = 0, prevLedMode = 0;
 
 void TIM7_IRQHandler() {														//Timer7 ISR function
 	if(TIM7->SR) {
 		//1sec interrupt software flag
 		soft_counter++;
-		if(soft_counter >= 1000) {
+		if(soft_counter >= 1000/2) {
 			oneSec = 1;
 		}
-		if(soft_counter >= 2000) {
+		if(soft_counter >= 2000/2) {
 			oneSec = 0;
 			twosecled = 1;
 		}
-		if(soft_counter >= 3000) {
+		if(soft_counter >= 3000/2) {
 			oneSec = 1;
 			twosecled = 1;
 		}
-		if(soft_counter >= 4000) {
+		if(soft_counter >= 4000/2) {
 			oneSec = 0;
 			twosecled = 0;
 			soft_counter = 0;
@@ -49,28 +51,39 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 		if(twoSec != oneSec) shortModeCounter++;
 		if(ledMode == modeShort && shortModeCounter > 16) shortModeCounter = 0;
 		if(ledMode == modeLong && shortModeCounter > 26) shortModeCounter = 0;
+		if(ledMode == modeSpec && shortModeCounter > 26) shortModeCounter = 0;
 		
 		//Decide ledMode long or short period
 		if(prevButtonCounter && hard_counter >= PushingTime) {
 			ledMode = modeLong;
-			shortModeCounter = 0;
+		//	shortModeCounter = 0;
 		}
 		if(buttonCounter && hard_counter < PushingTime && ledMode == modeLong) {
 			ledMode = modeSpec;
-			shortModeCounter = 0;
+		//	shortModeCounter = 0;
 		}
 		if(prevButtonCounter && hard_counter < PushingTime && ledMode == modeSpec) {
 			ledMode = modeShort;
 			shortModeCounter = 0;
 		}
+		
+		//From short mode to long mode -> long mode led sequence
+		if(prevLedMode == modeShort && ledMode == modeLong) {
+			shortModeCounter = 0;
+		}
+		
 		///////////////////////////
 		//Measure pushing time
 		if(buttonCounter) {
 			hard_counter++;
-			if(hard_counter >= PushingTime) hard_counter = PushingTime;
+			if(hard_counter >= PushingTime) {
+				hard_counter = PushingTime;
+				GPIOD->ODR |= (1ul << 12);
+			}
 		}
 		else {
 			hard_counter = 0;
+			GPIOD->ODR &= ~(1ul << 12);
 		}
 		/////////////////////////////
 //		//During long mode
@@ -85,8 +98,8 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 //		}
 //		////////////////////////////
 		//During long mode 1sec
-		if(ledMode == modeLong  && shortModeCounter <= 8) {
-			
+		if(((ledMode == modeLong) || ledMode == modeSpec) && shortModeCounter <= 8) {
+			here = 1;
 			GPIOD->ODR &= ~(1ul << 13);
 			if(oneSec) {
 				GPIOD->ODR |= 1ul << 15;
@@ -97,8 +110,8 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 		}
 		/////////////////////////////
 		//During long mode 2sec
-		if((ledMode == modeLong)  && (shortModeCounter > 4) && (shortModeCounter <= 26)) {
-			
+		if(((ledMode == modeLong) || ledMode == modeSpec) && (shortModeCounter > 8)) {
+			here = 0;
 			GPIOD->ODR &= ~(1ul << 13);
 			if(twosecled) {
 				GPIOD->ODR |= 1ul << 15;
@@ -135,6 +148,7 @@ void TIM7_IRQHandler() {														//Timer7 ISR function
 		}
 		/////////////////////////////
 		twoSec = oneSec;
+		prevLedMode = ledMode;
 	}
 	TIM7->SR = 0;
 }
@@ -183,5 +197,6 @@ int main() {
 			prevButtonCounter = 1;
 			GPIOD->ODR &= ~(1ul << 14);
 		}
+		
 	}
 }
